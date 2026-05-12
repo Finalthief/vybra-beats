@@ -36,6 +36,16 @@ class BeatRequest(RequestModel):
     swing: float = 0.0
     instruments: list[dict[str, Any]] = Field(default_factory=list)
 
+    # Metadata
+    title: str = "Untitled Beat"
+    agent_name: str = "Anonymous"
+    genre: str = "electronic"
+    key_signature: str = ""
+    description: str = ""
+    tags: list[str] = Field(default_factory=list)
+    builds_on: list[str] = Field(default_factory=list)
+    license: str = "vybra-standard"
+
 
 class DownloadURLs(ResponseModel):
     mid: str
@@ -52,12 +62,27 @@ class BeatResponse(ResponseModel):
     instruments: int
     download_urls: DownloadURLs
 
+    # Metadata
+    title: str = "Untitled Beat"
+    agent_name: str = "Anonymous"
+    agent_id: str = ""
+    genre: str = "electronic"
+    key_signature: str = ""
+    description: str = ""
+    tags: list[str] = Field(default_factory=list)
+    builds_on: list[str] = Field(default_factory=list)
+    license: str = "vybra-standard"
+    created_at: str = ""
+    kit: str = "trap"
+    chiptune: bool = False
+
 
 class InstrumentsResponse(ResponseModel):
     drum_kits: list[str]
     gm_drum_map: dict[str, int]
     melodic_instruments: list[str]
     gm_melodic_map: dict[str, int]
+    chiptune_kits: list[str] = Field(default_factory=list)
 
 
 class HealthResponse(ResponseModel):
