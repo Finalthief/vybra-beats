@@ -1,0 +1,16 @@
+{"tempo": 128, "bars": 4, "instruments": [
+  {"type": "drum", "kit": "trap", "velocity": 100, "pattern": {
+    "kick":  [1,0,0,1, 0,0,1,0, 1,0,0,0, 1,0,1,0],
+    "snare": [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0],
+    "hihat": [1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0]
+  }},
+  {"type": "melodic", "instrument": "synth_bass", "notes": [
+    {"pitch": 36, "start": 0, "duration": 2, "velocity": 90},
+    {"pitch": 38, "start": 2, "duration": 1, "velocity": 85},
+    {"pitch": 41, "start": 3, "duration": 1, "velocity": 85}
+  ]},
+  {"type": "chord", "instrument": "warm_pad", "progression": [
+    {"root": "Cm7", "start": 0, "duration": 2},
+    {"root": "Fm7", "start": 2, "duration": 2}
+  ]}
+]}

@@ -1,0 +1,5 @@
+fastapi
+uvicorn
+pydantic
+pretty_midi
+python-multipart
