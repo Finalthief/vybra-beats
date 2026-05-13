@@ -43,7 +43,75 @@ def render_beat(spec: dict[str, Any], storage: LocalBeatStorage) -> BeatResponse
     make_beat = load_make_beat_module()
     midi, metadata = make_beat.build_beat(spec)
     render_result = make_beat.save_beat(midi, metadata, str(storage.data_dir))
-    return storage.save_render_result(render_result)
+    
+    # Check if chiptune rendering is requested
+    is_chiptune = spec.get("chiptune", False) or any(
+        i.get("kit") == "chiptune" for i in spec.get("instruments", [])
+    )
+    
+    if is_chiptune and any(
+        i.get("type") == "drum" for i in spec.get("instruments", [])
+    ):
+        try:
+            from . import chiptune as ct
+            import random
+            
+            # Extract drum pattern for chiptune noise channel
+            drum_track = []
+            for inst in spec.get("instruments", []):
+                if inst.get("type") == "drum":
+                    pattern = inst.get("pattern", {})
+                    for drum_name, hits in pattern.items():
+                        if drum_name in ("snare", "clap", "hihat_o"):
+                            step_duration = 60.0 / spec.get("tempo", 120) / 4
+                            for step_idx, val in enumerate(hits):
+                                if val:
+                                    t = step_idx * step_duration
+                                    vel = inst.get("velocity", 100)
+                                    drum_track.append((0, t, 0.1, vel // 2))
+            
+            # Extract melodic notes for square/triangle channels
+            mel_notes = []
+            for inst in spec.get("instruments", []):
+                if inst.get("type") == "melodic":
+                    for note in inst.get("notes", []):
+                        pitch = note.get("pitch", 36)
+                        start = note.get("start", 0) * 60.0 / spec.get("tempo", 120)
+                        dur = note.get("duration", 0.5)
+                        vel = note.get("velocity", 80)
+                        mel_notes.append((pitch, start, dur, vel))
+            
+            # Render chiptune audio
+            if mel_notes:
+                square_samples = ct.render_from_midi_notes(
+                    mel_notes, wave_type="square", duty_cycle=0.5
+                )
+            else:
+                square_samples = []
+            
+            if drum_track:
+                noise_samples = ct.render_from_midi_notes(
+                    drum_track, wave_type="noise"
+                )
+            else:
+                noise_samples = []
+            
+            all_tracks = [t for t in [square_samples, noise_samples] if t]
+            
+            if all_tracks:
+                mixed = ct.mix_tracks(all_tracks)
+                chiptune_path = storage.asset_path(render_result["id"], "chiptune.wav")
+                ct.save_wav(mixed, str(chiptune_path))
+                
+                # Also convert to mp3
+                import os as _os
+                mp3_path = storage.asset_path(render_result["id"], "chiptune.mp3")
+                _os.system(f'ffmpeg -y -i "{chiptune_path}" -codec:a libmp3lame -b:a 320k "{mp3_path}" 2>nul')
+        
+        except Exception:
+            logger.warning("Chiptune rendering failed, falling back to MIDI render", exc_info=True)
+    
+    return storage.save_render_result(render_result, is_chiptune)
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -96,10 +164,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             raise HTTPException(status_code=500, detail=str(exc) or "Unable to load instruments") from exc
 
         return InstrumentsResponse(
-            drum_kits=["trap"],
+            drum_kits=["trap", "live", "electronic", "chiptune", "lo-fi"],
             gm_drum_map=make_beat.GM_DRUMS,
             melodic_instruments=sorted(make_beat.GM_INSTRUMENTS.keys()),
             gm_melodic_map=make_beat.GM_INSTRUMENTS,
+            chiptune_kits=["chiptune-nes", "chiptune-gameboy", "chiptune-arcade"],
         )
 
     return app

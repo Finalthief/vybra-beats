@@ -49,7 +49,7 @@ class LocalBeatStorage:
             encoding="utf-8",
         )
 
-    def save_render_result(self, render_result: dict[str, Any]) -> BeatResponse:
+    def save_render_result(self, render_result: dict[str, Any], is_chiptune: bool = False) -> BeatResponse:
         beat_id = str(render_result["id"])
         missing_assets = [
             ext for ext in ("mid", "wav", "mp3") if not self.asset_path(beat_id, ext).exists()
@@ -59,6 +59,7 @@ class LocalBeatStorage:
             raise RuntimeError(f"Missing rendered asset(s): {missing}")
 
         response = self.build_response(render_result)
+        response.chiptune = is_chiptune
         self.save_metadata(response)
         return response
 
