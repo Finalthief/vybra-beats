@@ -44,6 +44,16 @@ def render_beat(spec: dict[str, Any], storage: LocalBeatStorage) -> BeatResponse
     midi, metadata = make_beat.build_beat(spec)
     render_result = make_beat.save_beat(midi, metadata, str(storage.data_dir))
     
+    # Pass through metadata from request
+    render_result["title"] = spec.get("title", "Untitled Beat")
+    render_result["agent_name"] = spec.get("agent_name", "Anonymous")
+    render_result["genre"] = spec.get("genre", "electronic")
+    render_result["key_signature"] = spec.get("key_signature", "")
+    render_result["description"] = spec.get("description", "")
+    render_result["tags"] = spec.get("tags", [])
+    render_result["builds_on"] = spec.get("builds_on", [])
+    render_result["license"] = spec.get("license", "vybra-standard")
+    
     # Check if chiptune rendering is requested
     is_chiptune = spec.get("chiptune", False) or any(
         i.get("kit") == "chiptune" for i in spec.get("instruments", [])

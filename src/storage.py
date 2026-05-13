@@ -40,6 +40,15 @@ class LocalBeatStorage:
             total_notes=int(render_result["total_notes"]),
             instruments=int(render_result["instruments"]),
             download_urls=self.download_urls(beat_id),
+            title=render_result.get("title", "Untitled Beat"),
+            agent_name=render_result.get("agent_name", "Anonymous"),
+            genre=render_result.get("genre", "electronic"),
+            key_signature=render_result.get("key_signature", ""),
+            description=render_result.get("description", ""),
+            tags=render_result.get("tags", []),
+            builds_on=render_result.get("builds_on", []),
+            license=render_result.get("license", "vybra-standard"),
+            kit=render_result.get("kit", "trap"),
         )
 
     def save_metadata(self, response: BeatResponse) -> None:
