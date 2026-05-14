@@ -77,6 +77,13 @@ class BeatResponse(ResponseModel):
     chiptune: bool = False
 
 
+class BeatListResponse(ResponseModel):
+    items: list[BeatResponse] = Field(default_factory=list)
+    total: int = 0
+    limit: int = 20
+    offset: int = 0
+
+
 class InstrumentsResponse(ResponseModel):
     drum_kits: list[str]
     gm_drum_map: dict[str, int]

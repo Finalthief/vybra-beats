@@ -8,13 +8,20 @@ from pathlib import Path
 from typing import Any
 
 import uvicorn
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, Header, HTTPException, Query
 from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from .config import Settings, get_settings
-from .models import BeatRequest, BeatResponse, HealthResponse, InstrumentsResponse, dump_model
+from .models import (
+    BeatListResponse,
+    BeatRequest,
+    BeatResponse,
+    HealthResponse,
+    InstrumentsResponse,
+    dump_model,
+)
 from .storage import BeatNotFoundError, LocalBeatStorage
 
 
@@ -112,11 +119,14 @@ def render_beat(spec: dict[str, Any], storage: LocalBeatStorage) -> BeatResponse
                 mixed = ct.mix_tracks(all_tracks)
                 chiptune_path = storage.asset_path(render_result["id"], "chiptune.wav")
                 ct.save_wav(mixed, str(chiptune_path))
-                
-                # Also convert to mp3
-                import os as _os
+
                 mp3_path = storage.asset_path(render_result["id"], "chiptune.mp3")
-                _os.system(f'ffmpeg -y -i "{chiptune_path}" -codec:a libmp3lame -b:a 320k "{mp3_path}" 2>nul')
+                make_beat._run_ffmpeg([
+                    "-i", str(chiptune_path),
+                    "-codec:a", "libmp3lame",
+                    "-b:a", "320k",
+                    str(mp3_path),
+                ])
         
         except Exception:
             logger.warning("Chiptune rendering failed, falling back to MIDI render", exc_info=True)
@@ -146,17 +156,36 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         name="data",
     )
 
+    def require_api_key(x_api_key: str | None = Header(default=None)) -> None:
+        if settings.api_key is None:
+            return
+        if x_api_key != settings.api_key:
+            raise HTTPException(status_code=401, detail="Invalid or missing API key")
+
     @app.get("/health", response_model=HealthResponse)
     def health() -> HealthResponse:
         return HealthResponse(status="ok")
 
-    @app.post("/api/beats", response_model=BeatResponse, status_code=201)
+    @app.post(
+        "/api/beats",
+        response_model=BeatResponse,
+        status_code=201,
+        dependencies=[Depends(require_api_key)],
+    )
     async def create_beat(spec: BeatRequest) -> BeatResponse:
         try:
             return await run_in_threadpool(render_beat, dump_model(spec), storage)
         except Exception as exc:  # pragma: no cover - exercised through API
             logger.exception("Beat render failed")
             raise HTTPException(status_code=500, detail=str(exc) or "Beat render failed") from exc
+
+    @app.get("/api/beats", response_model=BeatListResponse)
+    def list_beats(
+        limit: int = Query(20, ge=1, le=100),
+        offset: int = Query(0, ge=0),
+    ) -> BeatListResponse:
+        items, total = storage.list_metadata(limit=limit, offset=offset)
+        return BeatListResponse(items=items, total=total, limit=limit, offset=offset)
 
     @app.get("/api/beats/{beat_id}", response_model=BeatResponse)
     def get_beat(beat_id: str) -> BeatResponse:

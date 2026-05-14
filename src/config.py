@@ -14,6 +14,14 @@ class Settings:
     data_dir: Path
     data_url_prefix: str
     cors_origins: tuple[str, ...]
+    api_key: str | None = None
+
+
+def _parse_origins(raw: str | None) -> tuple[str, ...]:
+    if not raw:
+        return ("*",)
+    parts = tuple(p.strip() for p in raw.split(",") if p.strip())
+    return parts or ("*",)
 
 
 @lru_cache(maxsize=1)
@@ -26,11 +34,14 @@ def get_settings() -> Settings:
         else project_root / "data"
     )
 
+    api_key = os.getenv("VYBRA_API_KEY") or None
+
     return Settings(
         app_name="Vybra Beats API",
         host=os.getenv("VYBRA_HOST", "0.0.0.0"),
         port=int(os.getenv("PORT", os.getenv("VYBRA_PORT", "8000"))),
         data_dir=data_dir.resolve(),
         data_url_prefix=os.getenv("VYBRA_DATA_URL_PREFIX", "/data").rstrip("/") or "/data",
-        cors_origins=("*",),
+        cors_origins=_parse_origins(os.getenv("VYBRA_CORS_ORIGINS")),
+        api_key=api_key,
     )

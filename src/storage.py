@@ -80,3 +80,19 @@ class LocalBeatStorage:
         payload = json.loads(metadata_path.read_text(encoding="utf-8"))
         payload["download_urls"] = dump_model(self.download_urls(beat_id))
         return validate_model(BeatResponse, payload)
+
+    def list_metadata(self, limit: int, offset: int) -> tuple[list[BeatResponse], int]:
+        metadata_files = sorted(
+            self.data_dir.glob("*.json"),
+            key=lambda p: p.stat().st_mtime,
+            reverse=True,
+        )
+        total = len(metadata_files)
+        window = metadata_files[offset : offset + limit]
+        items: list[BeatResponse] = []
+        for path in window:
+            try:
+                items.append(self.load_metadata(path.stem))
+            except (BeatNotFoundError, ValueError):
+                continue
+        return items, total

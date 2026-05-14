@@ -5,14 +5,27 @@ An agent submits patterns as JSON, we generate MIDI + render audio.
 Usage:
     python scripts/make_beat.py < input.json > output/
 """
-import json, sys, os, io, random, uuid
+import json, sys, os, io, logging, random, shutil, subprocess, uuid
 from typing import Optional
 
-try:
-    import pretty_midi
-except ImportError:
-    os.system("uv pip install pretty_midi")
-    import pretty_midi
+import pretty_midi
+
+logger = logging.getLogger(__name__)
+
+
+def _run_ffmpeg(args: list[str]) -> subprocess.CompletedProcess:
+    """Run ffmpeg with a list of args (no shell). Logs stderr on non-zero exit."""
+    if shutil.which("ffmpeg") is None:
+        raise RuntimeError("ffmpeg is not installed or not on PATH")
+    result = subprocess.run(
+        ["ffmpeg", "-y", "-hide_banner", "-loglevel", "error", *args],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        logger.warning("ffmpeg exited %s: %s", result.returncode, result.stderr.strip())
+    return result
 
 # ── GM Drum Map ───────────────────────────────────────────
 GM_DRUMS = {
@@ -172,10 +185,12 @@ def save_beat(midi: pretty_midi.PrettyMIDI, metadata: dict, output_dir: str) -> 
     midi.write(midi_path)
 
     # Render to WAV using ffmpeg
+    # NOTE: ffmpeg cannot synthesize MIDI without a soundfont/FluidSynth.
+    # See README "System requirements" for the FluidSynth gap.
     wav_path = os.path.join(output_dir, f"{beat_id}.wav")
     mp3_path = os.path.join(output_dir, f"{beat_id}.mp3")
-    os.system(f'ffmpeg -y -i "{midi_path}" "{wav_path}" 2>nul')
-    os.system(f'ffmpeg -y -i "{wav_path}" -codec:a libmp3lame -b:a 320k "{mp3_path}" 2>nul')
+    _run_ffmpeg(["-i", midi_path, wav_path])
+    _run_ffmpeg(["-i", wav_path, "-codec:a", "libmp3lame", "-b:a", "320k", mp3_path])
 
     # Save metadata
     meta_path = os.path.join(output_dir, f"{beat_id}.json")
