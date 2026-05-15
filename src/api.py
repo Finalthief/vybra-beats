@@ -11,6 +11,7 @@ import uvicorn
 from fastapi import Depends, FastAPI, Header, HTTPException, Query
 from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
 from .config import Settings, get_settings
@@ -155,6 +156,21 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         StaticFiles(directory=storage.data_dir),
         name="data",
     )
+
+    static_dir = Path(__file__).resolve().parent / "static"
+    if static_dir.is_dir():
+        app.mount("/static", StaticFiles(directory=static_dir), name="static")
+        index_html_path = static_dir / "index.html"
+    else:
+        index_html_path = None
+
+    @app.get("/", response_class=HTMLResponse, include_in_schema=False)
+    def index() -> HTMLResponse:
+        if index_html_path is None or not index_html_path.exists():
+            return HTMLResponse(
+                "<h1>Vybra Beats</h1><p>UI not bundled. See <a href='/docs'>/docs</a>.</p>"
+            )
+        return HTMLResponse(index_html_path.read_text(encoding="utf-8"))
 
     def require_api_key(x_api_key: str | None = Header(default=None)) -> None:
         if settings.api_key is None:
