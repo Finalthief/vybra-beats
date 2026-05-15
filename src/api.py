@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 
 import uvicorn
-from fastapi import Depends, FastAPI, Header, HTTPException, Query
+from fastapi import APIRouter, Depends, FastAPI, Header, HTTPException, Query
 from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
@@ -178,12 +178,20 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         if x_api_key != settings.api_key:
             raise HTTPException(status_code=401, detail="Invalid or missing API key")
 
-    @app.get("/health", response_model=HealthResponse)
+    # --- /health (top-level for orchestrators that prefer it) ---
+    @app.get("/health", response_model=HealthResponse, tags=["meta"])
     def health() -> HealthResponse:
         return HealthResponse(status="ok")
 
-    @app.post(
-        "/api/beats",
+    # --- Versioned API router ---
+    api = APIRouter(tags=["beats"])
+
+    @api.get("/health", response_model=HealthResponse, tags=["meta"])
+    def health_versioned() -> HealthResponse:
+        return HealthResponse(status="ok")
+
+    @api.post(
+        "/beats",
         response_model=BeatResponse,
         status_code=201,
         dependencies=[Depends(require_api_key)],
@@ -195,7 +203,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             logger.exception("Beat render failed")
             raise HTTPException(status_code=500, detail=str(exc) or "Beat render failed") from exc
 
-    @app.get("/api/beats", response_model=BeatListResponse)
+    @api.get("/beats", response_model=BeatListResponse)
     def list_beats(
         limit: int = Query(20, ge=1, le=100),
         offset: int = Query(0, ge=0),
@@ -203,14 +211,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         items, total = storage.list_metadata(limit=limit, offset=offset)
         return BeatListResponse(items=items, total=total, limit=limit, offset=offset)
 
-    @app.get("/api/beats/{beat_id}", response_model=BeatResponse)
+    @api.get("/beats/{beat_id}", response_model=BeatResponse)
     def get_beat(beat_id: str) -> BeatResponse:
         try:
             return storage.load_metadata(beat_id)
         except BeatNotFoundError as exc:
             raise HTTPException(status_code=404, detail="Beat not found") from exc
 
-    @app.get("/api/instruments", response_model=InstrumentsResponse)
+    @api.get("/instruments", response_model=InstrumentsResponse)
     def get_instruments() -> InstrumentsResponse:
         try:
             make_beat = load_make_beat_module()
@@ -225,6 +233,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             gm_melodic_map=make_beat.GM_INSTRUMENTS,
             chiptune_kits=["chiptune-nes", "chiptune-gameboy", "chiptune-arcade"],
         )
+
+    # Primary mount: /api/v1/*  (matches ai-art-gallery)
+    app.include_router(api, prefix="/api/v1")
+    # Back-compat mount: /api/* — kept so existing clients don't break.
+    # Deprecate after v1 has a real consumer.
+    app.include_router(api, prefix="/api", include_in_schema=False)
 
     return app
 

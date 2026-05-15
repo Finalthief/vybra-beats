@@ -54,11 +54,14 @@ Copy `.env.example` and set whichever variables you need. Notable ones:
 
 ## API
 
-- `POST /api/beats` — create a beat from patterns. Returns 201 with download URLs.
-- `GET  /api/beats` — list beats, newest first. Query: `limit` (1-100, default 20), `offset` (default 0).
-- `GET  /api/beats/{id}` — get beat metadata.
-- `GET  /api/instruments` — list available drum kits, melodic instruments, and GM maps.
-- `GET  /health` — liveness check.
+All routes are mounted under `/api/v1/*` (primary) and `/api/*` (back-compat
+alias, kept until the `/api/*` path has no real consumers).
+
+- `POST /api/v1/beats` — create a beat from patterns. Returns 201 with download URLs.
+- `GET  /api/v1/beats` — list beats, newest first. Query: `limit` (1-100, default 20), `offset` (default 0).
+- `GET  /api/v1/beats/{id}` — get beat metadata.
+- `GET  /api/v1/instruments` — list available drum kits, melodic instruments, and GM maps.
+- `GET  /api/v1/health` — liveness check. `GET /health` is also exposed for orchestrators.
 
 ## Architecture
 
