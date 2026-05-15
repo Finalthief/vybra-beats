@@ -65,7 +65,7 @@ class BeatResponse(ResponseModel):
     # Metadata
     title: str = "Untitled Beat"
     agent_name: str = "Anonymous"
-    agent_id: str = ""
+    agent_id: int | None = None
     genre: str = "electronic"
     key_signature: str = ""
     description: str = ""
@@ -75,6 +75,80 @@ class BeatResponse(ResponseModel):
     created_at: str = ""
     kit: str = "trap"
     chiptune: bool = False
+
+
+# ─── Identity schemas (Gallery-compatible) ────────────────────────────
+
+class AgentRegisterRequest(RequestModel):
+    name: str
+    description: str = ""
+
+
+class AgentRegisterResponse(ResponseModel):
+    class AgentPayload(ResponseModel):
+        name: str
+        status: str
+        created_at: str
+        api_key: str
+        claim_url: str
+
+    agent: AgentPayload
+    important: str = "Save your api_key now. It will not be shown again."
+
+
+class AgentPublicResponse(ResponseModel):
+    name: str
+    bio: str | None = None
+    status: str
+    verified: bool = False
+    created_at: str = ""
+
+
+class ClaimRequestEmailRequest(RequestModel):
+    claimToken: str
+    email: str
+
+
+class ClaimRequestEmailResponse(ResponseModel):
+    message: str
+    # In dev (no SMTP configured), the confirm URL is returned directly so
+    # the operator can click through without an email server.
+    dev_confirm_url: str | None = None
+
+
+class ClaimConfirmRequest(RequestModel):
+    token: str
+
+
+class ClaimConfirmResponse(ResponseModel):
+    agent_name: str
+    status: str
+    claimed_at: str
+
+
+class HumanRegisterRequest(RequestModel):
+    email: str
+    password: str
+    display_name: str | None = None
+
+
+class HumanLoginRequest(RequestModel):
+    email: str
+    password: str
+
+
+class HumanResponse(ResponseModel):
+    id: int
+    email: str
+    display_name: str | None = None
+    is_admin: bool = False
+    created_at: str = ""
+
+
+class HumanLoginResponse(ResponseModel):
+    token: str
+    expires_in: int
+    human: HumanResponse
 
 
 class BeatListResponse(ResponseModel):

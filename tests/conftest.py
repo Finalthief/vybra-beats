@@ -15,17 +15,25 @@ from src.config import Settings
 from src.storage import LocalBeatStorage
 
 
-@pytest.fixture
-def settings(tmp_path: Path) -> Settings:
+def _make_settings(tmp_path: Path, *, api_key: str | None = None) -> Settings:
+    data_dir = tmp_path / "data"
     return Settings(
         app_name="Vybra Beats Test",
         host="127.0.0.1",
         port=0,
-        data_dir=tmp_path / "data",
+        data_dir=data_dir,
         data_url_prefix="/data",
         cors_origins=("*",),
-        api_key=None,
+        api_key=api_key,
+        database_url=f"sqlite:///{tmp_path / 'test.db'}",
+        auth_secret="test-secret-do-not-use-in-prod",
+        app_url="http://testserver",
     )
+
+
+@pytest.fixture
+def settings(tmp_path: Path) -> Settings:
+    return _make_settings(tmp_path)
 
 
 @pytest.fixture
@@ -41,15 +49,7 @@ def client(settings: Settings) -> TestClient:
 
 @pytest.fixture
 def authed_settings(tmp_path: Path) -> Settings:
-    return Settings(
-        app_name="Vybra Beats Test",
-        host="127.0.0.1",
-        port=0,
-        data_dir=tmp_path / "data",
-        data_url_prefix="/data",
-        cors_origins=("*",),
-        api_key="test-secret",
-    )
+    return _make_settings(tmp_path, api_key="test-secret")
 
 
 @pytest.fixture

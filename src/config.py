@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import secrets
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
@@ -15,6 +16,9 @@ class Settings:
     data_url_prefix: str
     cors_origins: tuple[str, ...]
     api_key: str | None = None
+    database_url: str = ""
+    auth_secret: str = ""
+    app_url: str = "http://localhost:8000"
 
 
 def _parse_origins(raw: str | None) -> tuple[str, ...]:
@@ -33,15 +37,24 @@ def get_settings() -> Settings:
         if configured_data_dir
         else project_root / "data"
     )
+    data_dir = data_dir.resolve()
 
     api_key = os.getenv("VYBRA_API_KEY") or None
+
+    database_url = os.getenv("DATABASE_URL") or f"sqlite:///{data_dir / 'vybra.db'}"
+
+    # AUTH_SECRET must be stable across restarts; warn (don't crash) if missing.
+    auth_secret = os.getenv("AUTH_SECRET") or secrets.token_urlsafe(32)
 
     return Settings(
         app_name="Vybra Beats API",
         host=os.getenv("VYBRA_HOST", "0.0.0.0"),
         port=int(os.getenv("PORT", os.getenv("VYBRA_PORT", "8000"))),
-        data_dir=data_dir.resolve(),
+        data_dir=data_dir,
         data_url_prefix=os.getenv("VYBRA_DATA_URL_PREFIX", "/data").rstrip("/") or "/data",
         cors_origins=_parse_origins(os.getenv("VYBRA_CORS_ORIGINS")),
         api_key=api_key,
+        database_url=database_url,
+        auth_secret=auth_secret,
+        app_url=os.getenv("APP_URL", "http://localhost:8000").rstrip("/"),
     )
